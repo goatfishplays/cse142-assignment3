@@ -1,0 +1,22 @@
+# Hyperparameter configuration for training.
+# Staff-controlled values (vocab_size, context_length, max_steps, seed) are NOT
+# configurable here — they are enforced by the training script and autograder.
+#
+# Priority: CLI args > config.yaml > TrainConfig defaults
+
+# Architecture (tunable — must satisfy constraints in assignment.pdf)
+d_model: 64
+n_layers: 5
+n_heads: 4
+d_ff: 256
+dropout: 0.0
+
+# Training
+batch_size: 32
+learning_rate: 0.001
+min_lr: 0.00001
+warmup_steps: 200
+weight_decay: 0.1
+gradient_clip_norm: 1.0
+beta1: 0.9
+beta2: 0.95
