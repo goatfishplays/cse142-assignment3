@@ -9,7 +9,6 @@ import torch.nn as nn
 
 from transformer_lm.nn_utils import silu, softmax
 
-
 # ---------------------------------------------------------------------------
 # Primitive layers
 # ---------------------------------------------------------------------------
@@ -24,14 +23,20 @@ class Linear(nn.Module):
     ``bias=False`` for all projections, so this is the common case).
     """
 
-    def __init__(
-        self, in_features: int, out_features: int, bias: bool = True
-    ) -> None:
+    # ! used AI to ask about how to use torch uniform
+    # TODO: remind me to ask if we are supposed to do iniitalize random uniform or arange style
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement Linear.__init__()")
+        bound = 1 / math.sqrt(in_features)
+        self.weights = nn.Parameter(torch.empty(in_features, out_features).uniform_(-bound, bound))
+        if bias:
+            self.bias = nn.Parameter(torch.zeros(out_features))
+        # raise NotImplementedError("TODO: Implement Linear.__init__()")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: Implement Linear.forward()")
+        return x @ self.weights + self.bias
+        # raise NotImplementedError("TODO: Implement Linear.forward()")
 
 
 class Embedding(nn.Module):
@@ -42,10 +47,12 @@ class Embedding(nn.Module):
 
     def __init__(self, num_embeddings: int, embedding_dim: int) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement Embedding.__init__()")
+        self.theEmbedler = nn.Parameter(torch.normal(mean=0, std=0.02, size=(num_embeddings, embedding_dim)))
+        # raise NotImplementedError("TODO: Implement Embedding.__init__()")
 
     def forward(self, indices: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: Implement Embedding.forward()")
+        return self.theEmbedler[indices]  # can't believe this actually works lmaooooo
+        # raise NotImplementedError("TODO: Implement Embedding.forward()")
 
 
 class RMSNorm(nn.Module):
@@ -53,10 +60,15 @@ class RMSNorm(nn.Module):
 
     def __init__(self, d_model: int, eps: float = 1e-5) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement RMSNorm.__init__()")
+        # TODO: ask wth is d_model for????? especially if we don't have learnable params????
+        self.eps = eps
+        # raise NotImplementedError("TODO: Implement RMSNorm.__init__()")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: Implement RMSNorm.forward()")
+        theMeanler = x.square().mean()  # TODO: check if this needs to be set to a dim
+        return x / torch.sqrt(theMeanler + self.eps)
+
+        # raise NotImplementedError("TODO: Implement RMSNorm.forward()")
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +109,7 @@ class RotaryPositionEmbedding(nn.Module):
         x2 = x[..., x.shape[-1] // 2 :]
         return torch.cat((-x2, x1), dim=-1)
 
-    def forward(
-        self, q: torch.Tensor, k: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply rotary embeddings to queries and keys.
 
         Args:
@@ -144,7 +154,13 @@ def scaled_dot_product_attention(
     Returns:
         ``(B, ..., T, d_v)``
     """
-    raise NotImplementedError("TODO: Implement scaled_dot_product_attention()")
+    # ! AI use needed to find full()
+    sqrtdk = math.sqrt(Q.shape[-1])
+    A = (Q @ K.transpose()) / sqrtdk
+    # mask = torch.full(size=A.shape, fill_value=-torch.inf).triu(diagonal=1)
+    return softmax(A + mask) @ V
+
+    # raise NotImplementedError("TODO: Implement scaled_dot_product_attention()")
 
 
 class CausalMultiHeadSelfAttention(nn.Module):
@@ -173,7 +189,14 @@ class CausalMultiHeadSelfAttention(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement CausalMultiHeadSelfAttention.__init__()")
+        self.qkv_proj = Linear(d_model, 3 * d_model, bias=False)
+        self.o_proj = Linear(d_model, d_model, False)
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.d_head = d_model / n_heads
+        self.rope = RotaryPositionEmbedding(self.d_head)
+        self.dropout = nn.Dropout(dropout)
+        # raise NotImplementedError("TODO: Implement CausalMultiHeadSelfAttention.__init__()")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -182,7 +205,16 @@ class CausalMultiHeadSelfAttention(nn.Module):
         Returns:
             ``(B, T, d_model)``
         """
-        raise NotImplementedError("TODO: Implement CausalMultiHeadSelfAttention.forward()")
+        B, T, d_model = x.shape
+        Q, K, V = torch.split(self.qkv_proj(x), 3)
+        Q = Q.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        K = K.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        V = V.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        Q, K = self.rope(Q, K)
+        mask = torch.full(size=(self.d_model, self.d_model), fill_value=-torch.inf).triu(diagonal=1)
+        out = scaled_dot_product_attention(Q, K, V, mask)
+        return self.dropout(self.o_proj(out))  # TODO we are here
+        # raise NotImplementedError("TODO: Implement CausalMultiHeadSelfAttention.forward()")
 
 
 # ---------------------------------------------------------------------------
@@ -207,13 +239,21 @@ class FeedForward(nn.Module):
     """
 
     def __init__(
-        self, d_model: int, d_ff: int, dropout: float = 0.0,
+        self,
+        d_model: int,
+        d_ff: int,
+        dropout: float = 0.0,
     ) -> None:
-        super().__init__()
-        raise NotImplementedError("TODO: Implement FeedForward.__init__()")
+        super().__init__()  # dude my variable naming is so inconsistent lmaoooo, keep defaulting to snake case and then realizing that looks stupid for variable names in math
+        self.W_up = Linear(d_model, d_ff, False)
+        self.W_gate = Linear(d_model, d_ff, False)  # check later if this should have bias
+        self.W_down = Linear(d_ff, d_model, False)
+        self.dropout = nn.Dropout(dropout)
+        # raise NotImplementedError("TODO: Implement FeedForward.__init__()")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: Implement FeedForward.forward()")
+        return self.dropout(self.W_down(silu(self.W_gate(x) * self.W_down(x))))
+        # raise NotImplementedError("TODO: Implement FeedForward.forward()")
 
 
 # ---------------------------------------------------------------------------
@@ -250,10 +290,15 @@ class TransformerBlock(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement TransformerBlock.__init__()")
+
+        self.theAttentler = CausalMultiHeadSelfAttention(d_model, n_heads, dropout)
+        self.theFFler = FeedForward(d_model, d_ff, dropout)
+        # raise NotImplementedError("TODO: Implement TransformerBlock.__init__()")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: Implement TransformerBlock.forward()")
+        x = x + self.theAttentler(RMSNorm(x))
+        return x + self.theFFler(RMSNorm(x))
+        # raise NotImplementedError("TODO: Implement TransformerBlock.forward()")
 
 
 class TransformerLM(nn.Module):
@@ -297,7 +342,20 @@ class TransformerLM(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        raise NotImplementedError("TODO: Implement TransformerLM.__init__()")
+        self.token_emb = Embedding(vocab_size, d_model)
+        blocks = []
+        for _ in range(n_layers):
+            cur = TransformerBlock(d_model, n_heads, d_ff, dropout)
+            cur.theAttentler.o_proj *= 0
+            cur.theFFler.W_down.zero_()  # ! AI USE asked if *= 0 would set all to 0 and it was like do zero_() clown
+            blocks.append(cur)
+        self.blocks = nn.ModuleList(blocks)
+        self.ln_final = RMSNorm(d_model)
+        self.lm_head = Linear(d_model, vocab_size, bias=False)
+        self.context_length = context_length
+        # TODO: check this is how tying works
+        self.lm_head.weights = self.token_emb.theEmbedler  # dude why the heck are my variable names like this lmaooooo, are you actually reading the code or like am I just talking to myself here
+        # raise NotImplementedError("TODO: Implement TransformerLM.__init__()")
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """
@@ -306,4 +364,10 @@ class TransformerLM(nn.Module):
         Returns:
             ``(B, T, vocab_size)`` raw logits.
         """
-        raise NotImplementedError("TODO: Implement TransformerLM.forward()")
+        X = self.token_emb(input_ids)
+        for block in self.blocks:
+            X = block(X)
+        X = self.ln_final(X)
+        return self.lm_head(X)
+
+        # raise NotImplementedError("TODO: Implement TransformerLM.forward()")

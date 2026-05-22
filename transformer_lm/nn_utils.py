@@ -17,7 +17,12 @@ def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
     Returns:
         Tensor of the same shape summing to 1 along ``dim``.
     """
-    raise NotImplementedError("TODO: Implement softmax()")
+
+    terms = torch.exp(x - x.max(dim=dim))  # I'm like 900% sure we need to edit dims
+    bottom = terms.sum()
+    return terms / bottom
+
+    # raise NotImplementedError("TODO: Implement softmax()")
 
 
 def silu(x: torch.Tensor) -> torch.Tensor:
@@ -29,11 +34,14 @@ def silu(x: torch.Tensor) -> torch.Tensor:
     Returns:
         Tensor of the same shape.
     """
-    raise NotImplementedError("TODO: Implement silu()")
+
+    return x * x.sigmoid()
+    # raise NotImplementedError("TODO: Implement silu()")
 
 
 def cross_entropy_loss(
-    logits: torch.Tensor, targets: torch.Tensor,
+    logits: torch.Tensor,
+    targets: torch.Tensor,
 ) -> torch.Tensor:
     """Token-level cross-entropy loss (numerically stable).
 
