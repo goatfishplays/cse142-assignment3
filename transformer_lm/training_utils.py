@@ -24,6 +24,13 @@ def get_batch(
     Returns:
         ``(x, y)`` both of shape ``(batch_size, context_length)``.
     """
+    # TODO: see if is better to move data initally vs after to device
+    if len(data) <= context_length:
+        raise ValueError("no valid shifted target window exists")
+    x_inds = torch.randint(0, len(data) - context_length, (batch_size, 1)) + torch.arange(0, context_length)  # dude I'm so smart wth, me when I actually learn how broadcasting works
+    x = data[x_inds].to(device, dtype=torch.long)
+    y = data[x_inds + 1].to(device, dtype=torch.long)
+    return (x, y)
     raise NotImplementedError("TODO: Implement get_batch()")
 
 
