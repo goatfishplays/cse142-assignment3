@@ -54,4 +54,26 @@ def generate(
     Returns:
         List of token IDs (prompt + generated).
     """
+    # TODO: ask whether should use same dtype as batch or not
+    # ! AI USE: asked for clarification on how pytorch handles memory(does slicing reallocate, does unsqueezing reallocate, etc.)
+    # ! AI USE: ask for clarification on how to get a parameter from model.parameters(), gave me next()
+    if context_length == None:
+        context_length = model.context_length
+    context = torch.tensor(prompt_ids + [-1] * max_new_tokens, device=next(model.parameters()).device)
+    for i in range(len(prompt_ids), len(context)):
+        # print(context)
+        # print(context.shape)
+        # print(context[:i].unsqueeze(0).shape)
+        # print()
+        logits = model(context[max(0, i - context_length) : i].unsqueeze(0))[0, -1] / temperature  # Does it matter if I unsqueeze here or before???? # TODO: test if matters
+        # print(logits)
+        # print(logits.shape)
+        # print
+
+        y_pred = torch.multinomial(softmax(logits), num_samples=1)
+        # print(y_pred)
+        context[i] = y_pred.item()
+    # print(context)
+    return list(context)
+
     raise NotImplementedError("TODO: Implement generate()")

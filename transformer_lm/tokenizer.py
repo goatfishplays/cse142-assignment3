@@ -80,7 +80,7 @@ def train_bpe(
     raise NotImplementedError("TODO: Implement train_bpe()")
 
 
-print(train_bpe("UTF-8-demo.txt", 300, ["frick", "fish", "foggy"]))
+# print(train_bpe("UTF-8-demo.txt", 300, ["frick", "fish", "foggy"]))
 
 
 class BPETokenizer:
@@ -102,7 +102,7 @@ class BPETokenizer:
         self.special_tokens = list(map(lambda x: bytes(x, "utf-8"), special_tokens))
         self.special_tokens.sort(key=len, reverse=True)
 
-        print(vocab)
+        # print(vocab)
 
         # raise NotImplementedError("TODO: Implement BPETokenizer.__init__()")
 
@@ -143,7 +143,7 @@ class BPETokenizer:
     def encode(self, text: str) -> list[int]:
         """Encode a string into a list of token IDs."""
         textBytes = bytes(text, "utf-8")
-        print(textBytes)
+        # print(textBytes)
         return self.encodeRecurse(textBytes, 0)
 
         raise NotImplementedError("TODO: Implement encode()")
